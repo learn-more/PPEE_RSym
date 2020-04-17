@@ -1,0 +1,3 @@
+LIBRARY RSym
+EXPORTS
+   Wolf
