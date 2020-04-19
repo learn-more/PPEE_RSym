@@ -17,6 +17,3 @@ Filename and line-numbers are stored in a way that allows the [translation of a 
 ## Example
 ![Layout](docs/Example.png)
 
-
-## TODO
-- [ ] Filtering data does not work yet

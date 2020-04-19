@@ -18,7 +18,7 @@ static const WCHAR* g_FileName;
 static const BYTE* g_MemBase;
 
 // The actual plugin :)
-void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* g_MemBase);
+void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* g_MemBase, const LPCWSTR FilterText);
 
 
 static
@@ -31,22 +31,36 @@ DWORD WINAPI ExitProc(LPVOID)
     FreeLibraryAndExitThread((HMODULE)&__ImageBase, 0);
 }
 
+static void CallPlugin(HWND hWnd)
+{
+    WCHAR FilterText[1024] = { 0 };
+
+    // Get the info we need to call the plugin
+    HWND hListView = FindWindowExW(hWnd, NULL, WC_LISTVIEWW, NULL);
+    HWND hFilterEdit = FindWindowExW(hWnd, NULL, WC_EDIT, NULL);
+
+    // Trivia: PPEE has a buffer overflow on this, it uses sizeof instead of countof :)
+    GetWindowTextW(hFilterEdit, FilterText, _countof(FilterText));
+    Plugin_NodeActivated(hListView, g_FileName, g_MemBase, FilterText);
+}
+
 static
 LRESULT WINAPI SubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     if (uMsg == WM_NOTIFY)
     {
-        switch (((LPNMHDR)lParam)->code)
+        LPNMHDR header = (LPNMHDR)lParam;
+
+        switch (header->code)
         {
         case TVN_SELCHANGED:
-            if (((LPNMTREEVIEW)lParam)->itemNew.hItem == g_PluginNode)
+            if (((LPNMTREEVIEW)lParam)->itemNew.hItem == g_PluginNode ||
+                header->idFrom == 112)   // Filter box change
             {
                 // Give PPEE a chance to clear the ListView, add default headers etc.
                 LRESULT lResult = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
-                // Call the plugin
-                HWND hListView = FindWindowExW(hWnd, NULL, WC_LISTVIEWW, NULL);
-                Plugin_NodeActivated(hListView, g_FileName, g_MemBase);
+                CallPlugin(hWnd);
 
                 // Return whatever PPEE wanted to return
                 return lResult;
@@ -127,9 +141,7 @@ void Wolf(HWND* hWndMainWindow, WCHAR* FileName, BYTE* memBase)
         // Is our node selected?
         if (TreeView_GetSelection(hTreeview) == g_PluginNode)
         {
-            // Directly call it
-            HWND hListView = FindWindowExW(*hWndMainWindow, NULL, WC_LISTVIEWW, NULL);
-            Plugin_NodeActivated(hListView, g_FileName, g_MemBase);
+            CallPlugin(*hWndMainWindow);
         }
         else
         {

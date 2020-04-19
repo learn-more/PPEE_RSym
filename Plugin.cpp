@@ -8,7 +8,10 @@
 #include <Windows.h>
 #include <stdio.h>
 #include <CommCtrl.h>
+#include <Shlwapi.h>
 #include "rsym.h"
+#pragma comment(lib, "Shlwapi.lib")
+
 
 static BOOL g_bParsed = false;
 static PBYTE g_RSymData = NULL;
@@ -68,7 +71,7 @@ static PIMAGE_SECTION_HEADER Find_RSym(const BYTE* MemBase)
     return NULL;
 }
 
-static void Parse_RSym(HWND hListView)
+static void Parse_RSym(HWND hListView, const LPCWSTR FilterText)
 {
     const ROSSYM_HEADER* RosSymHeader;
     const ROSSYM_ENTRY* First, *Last, *Entry;
@@ -109,11 +112,17 @@ static void Parse_RSym(HWND hListView)
             swprintf_s(FileBuffer, L"%S", File);
         }
 
-        AddListItem(hListView, SymbolBuffer, AddrBuffer, FileBuffer);
+        if (!FilterText || !FilterText[0] ||
+            StrStrIW(SymbolBuffer, FilterText) ||
+            StrStrIW(AddrBuffer, FilterText) ||
+            StrStrIW(FileBuffer, FilterText))
+        {
+            AddListItem(hListView, SymbolBuffer, AddrBuffer, FileBuffer);
+        }
     }
 }
 
-void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* MemBase)
+void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* MemBase, const LPCWSTR FilterText)
 {
     ListView_DeleteAllItems(hListView);
 
@@ -136,7 +145,7 @@ void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* Mem
         SendMessage(hListView, WM_SETREDRAW, FALSE, 0);
 
         // Parse the RSym data / add the items to the list view
-        Parse_RSym(hListView);
+        Parse_RSym(hListView, FilterText);
 
         // Unlock window updates
         SendMessage(hListView, WM_SETREDRAW, TRUE, 0);
