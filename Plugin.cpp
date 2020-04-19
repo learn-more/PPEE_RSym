@@ -5,7 +5,10 @@
  * COPYRIGHT:   Copyright 2020 Mark Jansen (mark.jansen@reactos.org)
  */
 
+#define WIN32_LEAN_AND_MEAN
+#define NOGDI
 #include <Windows.h>
+#include <Unknwn.h>
 #include <stdio.h>
 #include <CommCtrl.h>
 #include <Shlwapi.h>
@@ -122,7 +125,7 @@ static void Parse_RSym(HWND hListView, const LPCWSTR FilterText)
     }
 }
 
-void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* MemBase, const LPCWSTR FilterText)
+void Plugin_NodeActivated(HWND hListView, const BYTE* MemBase, const LPCWSTR FilterText)
 {
     ListView_DeleteAllItems(hListView);
 

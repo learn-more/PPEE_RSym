@@ -5,6 +5,8 @@
  * COPYRIGHT:   Copyright 2020 Mark Jansen (mark.jansen@reactos.org)
  */
 
+#define WIN32_LEAN_AND_MEAN
+#define NOGDI
 #include <windows.h>
 #include <CommCtrl.h>
 #include <cassert>
@@ -14,11 +16,10 @@ extern "C"
 IMAGE_DOS_HEADER __ImageBase;
 
 static HTREEITEM g_PluginNode;
-static const WCHAR* g_FileName;
 static const BYTE* g_MemBase;
 
 // The actual plugin :)
-void Plugin_NodeActivated(HWND hListView, const WCHAR* FileName, const BYTE* g_MemBase, const LPCWSTR FilterText);
+void Plugin_NodeActivated(HWND hListView, const BYTE* g_MemBase, const LPCWSTR FilterText);
 
 
 static
@@ -40,12 +41,12 @@ static void CallPlugin(HWND hWnd)
     HWND hFilterEdit = FindWindowExW(hWnd, NULL, WC_EDIT, NULL);
 
     // Trivia: PPEE has a buffer overflow on this, it uses sizeof instead of countof :)
-    GetWindowTextW(hFilterEdit, FilterText, _countof(FilterText));
-    Plugin_NodeActivated(hListView, g_FileName, g_MemBase, FilterText);
+    GetWindowTextW(hFilterEdit, FilterText, sizeof(FilterText) / sizeof(FilterText[0]));
+    Plugin_NodeActivated(hListView, g_MemBase, FilterText);
 }
 
 static
-LRESULT WINAPI SubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+LRESULT WINAPI SubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR)
 {
     if (uMsg == WM_NOTIFY)
     {
@@ -73,7 +74,7 @@ LRESULT WINAPI SubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
                 LRESULT lResult = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
                 // Remove our subclass
-                RemoveWindowSubclass(hWnd, SubclassProc, 0);
+                RemoveWindowSubclass(hWnd, SubclassProc, uIdSubclass);
 
                 // If we unload ourself while in this callback we might try to execute to code that is unloaded,
                 // so ask windows to do it for us from a new thread
@@ -129,12 +130,11 @@ void AddTreeviewNode(HWND hMainWindow)
 }
 
 // Plugin entrypoint
-void Wolf(HWND* hWndMainWindow, WCHAR* FileName, BYTE* memBase)
+void Wolf(HWND* hWndMainWindow, WCHAR*, BYTE* memBase)
 {
     // We are already loaded / hooked up, someone clicked on the plugin item...
     if (g_PluginNode)
     {
-        assert(FileName == g_FileName);
         assert(memBase == g_MemBase);
 
         HWND hTreeview = FindWindowExW(*hWndMainWindow, NULL, WC_TREEVIEWW, NULL);
@@ -155,11 +155,10 @@ void Wolf(HWND* hWndMainWindow, WCHAR* FileName, BYTE* memBase)
     WCHAR Buffer[MAX_PATH];
 
     // Increase reference count
-    GetModuleFileNameW((HMODULE)&__ImageBase, Buffer, _countof(Buffer));
+    GetModuleFileNameW((HMODULE)&__ImageBase, Buffer, sizeof(Buffer) / sizeof(Buffer[0]));
     LoadLibraryW(Buffer);
 
     // Store this for callbacks
-    g_FileName = FileName;
     g_MemBase = memBase;
 
     // Add the actual plugin stuff
@@ -168,7 +167,7 @@ void Wolf(HWND* hWndMainWindow, WCHAR* FileName, BYTE* memBase)
 
 BOOL
 WINAPI
-DllMain(HMODULE hDll, DWORD dwReason, LPVOID lpReserved)
+DllMain(HMODULE hDll, DWORD dwReason, LPVOID)
 {
     if (dwReason == DLL_PROCESS_ATTACH)
     {
